@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+*.log
+hmcl-workdir/
+test/tmp/
+agent/lib/
+agent/build/

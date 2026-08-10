@@ -1,0 +1,26 @@
+{
+  "name": "hmcl-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for HMCL (Hello Minecraft! Launcher): search/download/import modpacks, manage versions, launch the game — driven by a javaagent injected into a headless HMCL JVM.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "build:agent": "node agent/build.mjs",
+    "start": "node dist/index.js",
+    "test": "tsx --test \"test/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.23.12",
+    "typescript": "^5.8.0"
+  }
+}

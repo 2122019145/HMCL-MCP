@@ -1,0 +1,5 @@
+Manifest-Version: 1.0
+Premain-Class: hmcl.agent.AgentMain
+Main-Class: hmcl.agent.AgentMain
+Implementation-Title: HMCL MCP Agent
+Implementation-Version: 0.1.0
