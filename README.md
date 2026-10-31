@@ -131,6 +131,53 @@ Environment variables can be set in the client's `env` object, in your shell, or
 - **Port conflict**: change `HMCL_MCP_AGENT_PORT` and restart; the agent binds `127.0.0.1` only.
 - **Paths containing `!`**: HMCL refuses to run when the working directory or jar path contains `!` — use a path without it.
 
+## Packaging as a single jar
+
+The whole server (MCP server + Node runtime + the Java agent + HMCL itself) can be packed into
+one self-contained file that runs with nothing but a JRE installed:
+
+```bash
+npm run build:jar          # -> build/hmcl-mcp.jar  (~61 MB)
+java -jar build/hmcl-mcp.jar
+```
+
+The jar is a launcher, not a rewrite: on startup it unpacks itself into `<workdir>/.launcher`
+(cached between runs), seeds `HMCL.jar` / `hmcl-agent.jar` / the JavaFX jars into
+`<workdir>/hmcl` when they are missing, and then starts the Node process with the parent's
+stdio inherited — the MCP JSON-RPC stream passes straight through.
+
+Point an MCP client at it like any other server:
+
+```json
+{
+  "mcpServers": {
+    "hmcl": {
+      "command": "java",
+      "args": ["-jar", "/path/to/hmcl-mcp.jar"],
+      "env": { "HMCL_MCP_WORKDIR": "D:/mc" }
+    }
+  }
+}
+```
+
+Build options (`node tools/jar/build-jar.mjs`):
+
+| Flag | Effect |
+|---|---|
+| `--no-node` | do not embed a Node runtime (≈20 MB instead of ≈61 MB); the launcher falls back to `node` from `PATH` (>= 18) |
+| `--skip-agent` | reuse the existing `agent/build/` output instead of rebuilding the agent jar |
+
+The bundled `node.exe` is a Windows binary; on Linux/macOS build with `--no-node` and
+provide Node 18+ on `PATH`.
+
+Smoke test the packaged jar (boots it over stdio and lists the tools):
+
+```bash
+node test/e2e/jar-smoke.mjs              # handshake + tools/list
+node test/e2e/jar-smoke.mjs --full       # + check_environment
+node test/e2e/jar-smoke.mjs --full --agent  # + start the real HMCL agent and stop it
+```
+
 ## Docs
 
 - [`docs/setup.md`](docs/setup.md) — manual HMCL install, workdir layout, reusing an existing game directory, security notes
