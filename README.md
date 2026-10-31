@@ -4,6 +4,8 @@ MCP (Model Context Protocol) server that lets AI agents drive **HMCL** (Hello Mi
 
 HMCL has **no command line interface** (no `--launch`, no `--import`, no headless mode), so this project injects a small **javaagent** into a headless HMCL JVM and drives HMCL's core classes directly. Modpack search/download/install all run through HMCL's own addon repositories inside the agent (Modrinth, and CurseForge with HMCL's embedded API key — no user key needed); listing installed versions/modpacks is a local filesystem scan.
 
+Two ways to run it: from source (`npm install && npm run build`), or as a **single file** — `npm run build:jar` produces `build/hmcl-mcp.jar` (~61 MB) that bundles the MCP server, a Node runtime, the java agent and HMCL itself, so it needs nothing but a JRE. See [Packaging as a single jar](#packaging-as-a-single-jar).
+
 ## Architecture
 
 ```
@@ -31,9 +33,14 @@ HMCL-compatible directory layout inside the workdir: `versions/<id>/`, `librarie
 
 ## Requirements
 
+Running from source:
+
 - Node.js 18+ (24 recommended) — MCP SDK 1.30.0, `npm install`
 - JDK 17+ with `javac` (21 recommended) — HMCL itself requires Java 17; `javac` is needed to compile the agent jar
 - Internet access on first run (HMCL jar, javafx jars, Minecraft versions/libraries/assets)
+
+Running the packaged jar instead: only a **JRE 17+** is needed — Node, the MCP server, the agent and
+HMCL are all inside the jar. (`javac` is still required to *build* the jar.)
 
 ## Tools (21)
 
@@ -86,6 +93,27 @@ Register the server in your MCP client:
 
 Environment variables can be set in the client's `env` object, in your shell, or via a `.env` file — see [`.env.example`](.env.example) and `docs/setup.md`.
 
+Without a source checkout, build (or download) the single-file jar and point the client at it:
+
+```bash
+npm run build:jar   # -> build/hmcl-mcp.jar
+java -jar build/hmcl-mcp.jar
+```
+
+```json
+{
+  "mcpServers": {
+    "hmcl-mcp": {
+      "command": "java",
+      "args": ["-jar", "D:/path/to/hmcl-mcp.jar"],
+      "env": { "HMCL_MCP_WORKDIR": "D:/mc" }
+    }
+  }
+}
+```
+
+See [Packaging as a single jar](#packaging-as-a-single-jar) for details.
+
 ## Environment variables
 
 | Variable | Default | Description |
@@ -130,6 +158,8 @@ Environment variables can be set in the client's `env` object, in your shell, or
 - **Headless means no launcher window**: only the game window appears, on `launch_game`.
 - **Port conflict**: change `HMCL_MCP_AGENT_PORT` and restart; the agent binds `127.0.0.1` only.
 - **Paths containing `!`**: HMCL refuses to run when the working directory or jar path contains `!` — use a path without it.
+- **The jar is slow to start the first time**: it unpacks ~3000 files into `<workdir>/.launcher` on the first run (a few seconds); later runs reuse the cache. If the workdir is on a slow or read-only drive, point `HMCL_MCP_WORKDIR` somewhere writable.
+- **The jar finds no `node`**: the bundled runtime is a Windows binary. On Linux/macOS either build with `--no-node` and put Node 18+ on `PATH`, or run from source instead.
 
 ## Packaging as a single jar
 
@@ -145,6 +175,24 @@ The jar is a launcher, not a rewrite: on startup it unpacks itself into `<workdi
 (cached between runs), seeds `HMCL.jar` / `hmcl-agent.jar` / the JavaFX jars into
 `<workdir>/hmcl` when they are missing, and then starts the Node process with the parent's
 stdio inherited — the MCP JSON-RPC stream passes straight through.
+
+What ends up on disk:
+
+```
+<workdir>/.launcher/            ← unpacked launcher cache (created by the jar)
+├── node.exe                    ← the bundled Node runtime
+└── app/                        ← the MCP server + its production node_modules
+<workdir>/hmcl/                 ← seeded by the jar, shared with the source install
+├── HMCL.jar  hmcl-agent.jar  javafx-*.jar
+```
+
+The cache is keyed by a build id (`.build-id` inside `app/`): the first start unpacks ~3000
+files and takes a few seconds, every later start reuses the cache and is ready in ~1–2 s.
+Existing files in `<workdir>/hmcl` are never overwritten, so an installation that is already
+there (or a newer HMCL.jar you dropped in yourself) wins over the bundled copy.
+
+Because the jar already carries HMCL and the agent, `install_hmcl` has nothing left to
+download or compile when the jar is used — it only matters for the source install.
 
 Point an MCP client at it like any other server:
 
